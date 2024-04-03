@@ -12,14 +12,17 @@
 
 #define BUFFER_SIZE 256
 
+FILE *popen(const char *command, const char *type);                 //Must be included to avoid warnings
+int pclose(FILE *stream);
+
 void md5sum_caller(char* path, char* buffer);
 
 int main(int argc, char* argv[]) {
     for (int i = 1; argv[i]!=NULL; i++) {                                       //The slave will process a number of files sended by the master
         char buffer[BUFFER_SIZE]={'\0'};
-        md5sum_caller("slave", buffer);
-        buffer[strlen(buffer)-1]='\0';                                       //Remove the newline char after the fgets
-        printf("%s - PROCESS PID %d",buffer, getpid());
+        md5sum_caller(argv[i], buffer);
+        buffer[strlen(buffer)-1]='\0';                                      //I remove the newline created by fgets
+        printf("%s - PROCESS PID %d\n",buffer, getpid());
     }
 }
 
@@ -35,6 +38,10 @@ void md5sum_caller(char* path, char* buffer) {
         perror("FGETS was unsuccessful to read the data into the buffer");         //Error handling
         exit(EXIT_FAILURE);
     }
+    if(pclose(fp)==-1){
+        perror("PCLOSE couldn´t close successfully");
+        exit(EXIT_FAILURE);
+    };
 }
 
 
