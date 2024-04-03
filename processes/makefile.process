@@ -1,0 +1,36 @@
+# We need ../.. here because it's calculated with respect to where it's included.
+include ../../makefile.globals
+
+# lastword is necessary to take spaces in paths into account...
+PROCESS_NAME := $(lastword $(notdir $(realpath .)))
+
+UTILS_DIR := ../../$(UTILS_BASE_DIR)
+BIN_DIR := ../../$(BIN_BASE_DIR)
+
+# Source files
+PROCESS_SRCS := $(wildcard *.c)
+
+# Object files
+PROCESS_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(PROCESS_SRCS))
+UTILS_SRCS := $(notdir $(wildcard $(UTILS_DIR)/*.c))
+UTILS_OBJS := $(patsubst %.c,$(UTILS_DIR)/$(OBJ_DIR)/%.o,$(UTILS_SRCS))
+
+all: $(OBJ_DIR) $(BIN_DIR)/$(PROCESS_NAME)
+
+$(BIN_DIR)/$(PROCESS_NAME): $(PROCESS_OBJS) $(UTILS_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^
+
+$(OBJ_DIR):
+	mkdir $(@)
+
+$(OBJ_DIR)/%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(UTILS_DIR)/$(OBJ_DIR)/%.o: $(UTILS_DIR)/%.c
+	$(MAKE) -C $(UTILS_DIR) $(OBJ_DIR)/$*.o
+
+clean:
+	rm -rf $(OBJ_DIR)
+	rm -rf $(BIN_DIR)/$(PROCESS_NAME)
+
+.PHONY: all clean
