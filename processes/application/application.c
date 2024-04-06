@@ -6,6 +6,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <string.h>
 #include <semaphore.h>
 #include <unistd.h>
 #define SHM_SIZE 1024
@@ -22,6 +23,7 @@ static void
 exitWithFailure(const char *errMsg); // can be a function for all files
 
 int main(int argc, char const *argv[]) {
+  argv++;
   int fileQuant = argc - 1;
   if (fileQuant < 1)
     exitWithFailure("No files were passed\n");
@@ -42,10 +44,12 @@ int main(int argc, char const *argv[]) {
 
   int pid;
   pipe_t sendTasks[FORK_QUANT];
-  pipe_t getTasks[FORK_QUANT];
+  pipe_t getResults[FORK_QUANT];
 
   for (int i = 0; i < FORK_QUANT; i++) {
-    if (pipe(getTasks[i]) == ERROR)
+    if (pipe(sendTasks[i]) == ERROR)
+      exitWithFailure("Error while creating pipe\n");
+    if (pipe(getResults[i]) == ERROR)
       exitWithFailure("Error while creating pipe\n");
     pid = fork();
     if (pid == ERROR)
@@ -54,51 +58,62 @@ int main(int argc, char const *argv[]) {
       close(READ);
       dup(sendTasks[i][READ]);
       close(WRITE);
-      dup(getTasks[i][WRITE]);
+      dup(getResults[i][WRITE]);
       close(sendTasks[i][READ]);
-      close(sendTasks[i][WRITE]);
-      close(getTasks[i][READ]);
-      close(getTasks[i][WRITE]);
+      close(getResults[i][WRITE]);
+      for(int j = 0; j <= i; j++){
+        close(sendTasks[j][WRITE]);
+        close(getResults[j][READ]);
+      }
 
       char * argv[] = {NULL};
       char * envp[] = {NULL};
-      execve(SLAVE_CMD, argv, argc);
+      execve(SLAVE_CMD, argv, envp);
       exitWithFailure("Error while calling slave process\n");
     }
     else {
       close(sendTasks[i][READ]);
-      close(getTasks[i][WRITE]);
+      close(getResults[i][WRITE]);
     }
   }
   fd_set rfds;
   FD_ZERO(&rfds);
   int count = 0;
-  int maxFd = getTasks[0][READ];
-  for (int i = 0; i < FORK_QUANT; i++) { 
-    FD_SET(getTasks[i][READ], &rfds);
-    maxFd = getTasks[i][READ] > maxFd ? getTasks[i][0] : maxFd;
+  int maxFd = getResults[0][READ];
+  int i, j;
+  for (i = 0; i < FORK_QUANT && i < fileQuant; i++) { 
+    FD_SET(getResults[i][READ], &rfds);
+    maxFd = getResults[i][READ] > maxFd ? getResults[i][0] : maxFd;
+
+    write(sendTasks[i][WRITE], argv[i], strlen(argv[i]) + 1);  
   }
 
   int inc;
   char * iniAddress = buf;
   
-  while (count < fileQuant) {
+  while (i < fileQuant) {
 
     select(maxFd + 1, &rfds, NULL, NULL, NULL);
 
-    for (int i = 0; i < FORK_QUANT; i++) {
-      if (FD_ISSET(getTasks[i][READ], &rfds)) {
+    for (j = 0; i < FORK_QUANT; j++) {
+      if (FD_ISSET(getResults[j][READ], &rfds)) {
         
-        inc = read(getTasks[i][READ], buf, SHM_SIZE - (buf - iniAddress));
+        // en algún lado acá deberían ir semáforos creo
+        inc = read(getResults[j][READ], buf, SHM_SIZE - (buf - iniAddress));
         if(inc > 0){
           buf += inc;
           count++;
         }
-        write(sendTasks[i][WRITE], argv[i], sizeof(argv[i]));
-        
+        write(sendTasks[i][WRITE], argv[i], strlen(argv[i]) + 1);
+        i++;
       }
-      FD_SET(getTasks[i][0], &rfds);
+      FD_SET(getResults[j][0], &rfds);
     }
+  }
+
+  for(i = 0; i < FORK_QUANT; i++){
+    close(sendTasks[i][WRITE]);
+    close(getResults[i][READ]);
   }
 
   if (munmap(buf, SHM_SIZE) == ERROR)
