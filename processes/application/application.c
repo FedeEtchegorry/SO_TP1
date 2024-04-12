@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#define SHM_SIZE 1024
+#define SHM_SIZE 8192
 #define SHM_NAME "/results"
 #define SLAVE_CMD "./slave"
 #define RW_MODE 0666
@@ -19,10 +19,13 @@
 typedef int pipe_t[2];
 enum { READ = 0, WRITE = 1 };
 
+static int initializeChilds(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]);
+static int minInt(int x, int y);
 static void exitWithFailure(const char *errMsg); // can be a function for all files
 
 int main(int argc, char const *argv[]) {
-  argv++; // así arranco por los paths
+  // To start with the paths
+  argv++;
   int fileQuant = argc - 1;
   if (fileQuant < 1)
     exitWithFailure("No files were passed\n");
@@ -37,16 +40,76 @@ int main(int argc, char const *argv[]) {
   puts(SHM_NAME);
   sleep(5);
 
-  char *buf = mmap(NULL, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
-  if (buf == MAP_FAILED)
+  char *shmBuf = mmap(NULL, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
+  if (shmBuf == MAP_FAILED)
     exitWithFailure("Error while mapping shm\n");
 
-  int pid;
   pipe_t sendTasks[FORK_QUANT];
   pipe_t getResults[FORK_QUANT];
 
+  int childAmount = initializeChilds(fileQuant, sendTasks, getResults);
+
+  fd_set rfds;
+  int maxFd = getResults[childAmount-1][READ];
+  char *iniAddress = shmBuf;
+  int sentTasksCount = 0;
+  int resultsCount = 0;
+
+  // We start sending tasks to the slave processes 
+  while(sentTasksCount < minInt(FORK_QUANT, fileQuant)){
+        write(sendTasks[sentTasksCount][WRITE], argv[sentTasksCount], strlen(argv[sentTasksCount]));
+        sentTasksCount++;
+  }
+
+  while (resultsCount < fileQuant) {
+    // Prepares the rfds since select is destructive
+    FD_ZERO(&rfds); 
+    for (int j = 0; j < minInt(FORK_QUANT, fileQuant); j++) {
+      FD_SET(getResults[j][READ], &rfds);
+    }
+
+    if(select(maxFd + 1, &rfds, NULL, NULL, NULL) == ERROR)
+      exitWithFailure("Error while running select function\n");
+
+    for (int j = 0; j < minInt(FORK_QUANT, fileQuant); j++) { 
+      if (FD_ISSET(getResults[j][READ], &rfds)) {
+        shmBuf += read(getResults[j][READ], shmBuf, SHM_SIZE - (shmBuf - iniAddress));
+        resultsCount++;
+        if(sentTasksCount < fileQuant){
+          write(sendTasks[j][WRITE], argv[sentTasksCount], strlen(argv[sentTasksCount]));
+          sentTasksCount++;
+        }
+      }
+    }
+  }
+
+  for (int i = 0; i < minInt(FORK_QUANT, fileQuant); i++) { 
+    // closing the w-end, leads to the r-end receiving EOF
+    close(sendTasks[i][WRITE]);
+    close(getResults[i][READ]);
+  }
+
+  if (munmap(shmBuf, SHM_SIZE) == ERROR)
+    exitWithFailure("Error while unmapping shm\n");
+
+  if (close(shmFd) == ERROR)
+    exitWithFailure("Error while closing shm\n");
+
+  exit(EXIT_SUCCESS);
+}
+
+/*
+  The communication would be:
+  from app sendTask[i][WRITE] -> to slave sendTask[i][READ]
+
+  from slave getResults[i][WRITE] -> to app getResults[i][READ]
+
+  with i belonging to {0, ..., min(FORK_QUANT-1, fileQuant)}
+  */
+static int initializeChilds(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]){
+  int pid;
   int i;
-  for (i = 0; i < FORK_QUANT; i++) {
+  for (i = 0; i < minInt(FORK_QUANT, fileQuant); i++) {
     if (pipe(sendTasks[i]) == ERROR)
       exitWithFailure("Error while creating pipe\n");
     if (pipe(getResults[i]) == ERROR)
@@ -73,72 +136,21 @@ int main(int argc, char const *argv[]) {
     } else {
       close(sendTasks[i][READ]);
       close(getResults[i][WRITE]);
-      if(i < fileQuant)
-        write(sendTasks[i][WRITE], argv[i], strlen(argv[i]));
     }
   }
-  /*
-  file descriptors deberían quedar:
-  app = stdin, stdout, sendTasks[i][WRITE], getResults[i][READ] (i entre 0 y
-  FORK_QUANT - 1) s0 = sendTasks[0][READ], getResults[0][WRITE] s1 =
-  sendTasks[1][READ], getResults[1][WRITE] s2 = sendTasks[2][READ],
-  getResults[2][WRITE]
-  ...
-  s(FORK_QUANT - 1) = sendTasks[FORK_QUANT - 1][READ], getResults[FORK_QUANT -
-  1][WRITE]
+  return i;
+}
 
-  la comunicación sería:
-  app por sendTask[i][WRITE] -> slave por sendTask[i][READ]
-
-  slave por getResults[i][WRITE] -> app por getResults[i][READ]
-  */
-
-  fd_set rfds;
-  int maxFd = getResults[0][READ];
-  char *iniAddress = buf;
-  int resultsCount = 0;
-  int j;
-
-  while (resultsCount < fileQuant) {
-    FD_ZERO(&rfds); // preparo el rfds en cada iteración ya que el select es destructivo
-    for (j = 0; j < FORK_QUANT; j++) {
-      FD_SET(getResults[j][READ], &rfds);
-      maxFd = getResults[j][READ] > maxFd ? getResults[j][READ] : maxFd;
-    }
-    FD_SET(READ, &rfds);
-
-    select(maxFd + 1, &rfds, NULL, NULL, NULL);
-
-    for (j = 0; j < FORK_QUANT; j++) { // cuando hay algo para leer, busco cuál es
-      if (FD_ISSET(getResults[j][READ], &rfds)) {
-        buf += read(getResults[j][READ], buf, SHM_SIZE - (buf - iniAddress)); // lo mando al buffer y aumento el puntero
-        resultsCount++;
-        if(i < fileQuant){
-          write(sendTasks[i][WRITE], argv[i], strlen(argv[i]));
-          i++;
-        }
-      }
-    }
-  }
-  char endOfFile = EOF;
-  for (i = 0; i < FORK_QUANT; i++) { 
-    close(sendTasks[i][WRITE]); // closing the w-end, should lead to the r-end receiving EOF
-    close(getResults[i][READ]);
-  }
-
-  if (munmap(buf, SHM_SIZE) == ERROR)
-    exitWithFailure("Error while unmapping shm\n");
-
-  if (close(shmFd) == ERROR)
-    exitWithFailure("Error while closing shm\n");
-
-  exit(EXIT_SUCCESS);
+static int minInt(int x, int y){
+  return x < y ? x : y;
 }
 
 static void exitWithFailure(const char *errMsg) {
   fprintf(stderr, "%s", errMsg);
   exit(EXIT_FAILURE);
 }
+
+
 
 // https://www.tutorialspoint.com/unix_system_calls/_newselect.htm
 // https://jameshfisher.com/2017/02/24/what-is-mode_t/
