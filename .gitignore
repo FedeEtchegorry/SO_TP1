@@ -1,3 +1,4 @@
 *.o
 **/objs/
 bin/
+files/
