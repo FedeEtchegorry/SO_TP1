@@ -41,8 +41,7 @@ int main(int argc, char* argv[]) {
   puts(SHM_NAME);
   sleep(5);
 
-  char* shmBuf =
-      mmap(NULL, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
+  char* shmBuf = mmap(NULL, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
   if (shmBuf == MAP_FAILED) exitWithFailure("Error while mapping shm\n");
 
   pipe_t sendTasks[FORK_QUANT];
@@ -76,16 +75,11 @@ int main(int argc, char* argv[]) {
 
     for (int j = 0; j < minInt(FORK_QUANT, fileQuant); j++) {
       if (FD_ISSET(getResults[j][READ], &rfds)) {
-        shmBuf +=
-            read(getResults[j][READ], shmBuf, SHM_SIZE - (shmBuf - iniAddress));
-        printf("%s", shmBuf);
+        shmBuf += read(getResults[j][READ], shmBuf, SHM_SIZE - (shmBuf - iniAddress));
         resultsCount++;
         if (sentTasksCount < fileQuant) {
           int length = strlen(argv[sentTasksCount]);
-          // argv[sentTasksCount][length] = '\n';
-          write(
-              sendTasks[sentTasksCount][WRITE], argv[sentTasksCount], length + 1
-          );
+          write(sendTasks[j][WRITE], argv[sentTasksCount], length + 1);
           sentTasksCount++;
         }
       }
