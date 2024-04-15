@@ -9,7 +9,7 @@
 // buffer (It will be considered that every fgets will not reach the
 // last character of the BUFFER_SIZE)
 #define BUFFER_SIZE 10000
-#define SMALL_BUFFER 1000
+#define SMALL_BUFFER 100
 
 // Must be included to avoid warnings
 FILE* popen(const char* command, const char* type);
@@ -55,5 +55,8 @@ void md5sum_caller(char* path, char* buffer) {
 }
 
 void return_md5sum_result(char* md5sum_buffer) {
-  printf("%s - PROCESS PID %d\n", md5sum_buffer, getpid());
+  char ret_md5sum[SMALL_BUFFER];
+  snprintf(ret_md5sum, SMALL_BUFFER, "%s - PROCESS PID %d\n", md5sum_buffer, getpid());
+  write(STDOUT_FILENO, ret_md5sum, SMALL_BUFFER);
+  // printf("%s - PROCESS PID %d\n", md5sum_buffer, getpid());
 }
