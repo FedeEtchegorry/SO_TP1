@@ -26,7 +26,7 @@ typedef int pipe_t[2];
 enum { READ = 0, WRITE = 1 };
 
 static int initializeChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]);
-static int minInt(int x, int y);
+static void stopChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]);
 
 int main(int argc, char* argv[]) {
   char* path = dirname(argv[0]);
@@ -104,11 +104,7 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  for (int i = 0; i < minInt(FORK_QUANT, fileQuant); i++) {
-    // closing the w-end, leads to the r-end receiving EOF
-    close(sendTasks[i][WRITE]);
-    close(getResults[i][READ]);
-  }
+  stopChildren(fileQuant, sendTasks, getResults);
 
   if (fclose(file) == ERROR) perrorExit("fclose() error");
 
@@ -138,15 +134,15 @@ static int initializeChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResul
     pid = fork();
     if (pid == ERROR) perrorExit("Error while creating slave process\n");
     else if (pid == CHILD) {
-      close(READ);
-      dup(sendTasks[i][READ]);
-      close(WRITE);
-      dup(getResults[i][WRITE]);
-      close(sendTasks[i][READ]);
-      close(getResults[i][WRITE]);
+      safeClose(READ);
+      safeDup(sendTasks[i][READ]);
+      safeClose(WRITE);
+      safeDup(getResults[i][WRITE]);
+      safeClose(sendTasks[i][READ]);
+      safeClose(getResults[i][WRITE]);
       for (int j = 0; j <= i; j++) {
-        close(sendTasks[j][WRITE]);
-        close(getResults[j][READ]);
+        safeClose(sendTasks[j][WRITE]);
+        safeClose(getResults[j][READ]);
       }
 
       char* argv[] = {SLAVE_CMD, NULL};
@@ -154,14 +150,20 @@ static int initializeChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResul
       execve(SLAVE_CMD, argv, envp);
       perrorExit("execve() error");
     } else {
-      close(sendTasks[i][READ]);
-      close(getResults[i][WRITE]);
+      safeClose(sendTasks[i][READ]);
+      safeClose(getResults[i][WRITE]);
     }
   }
   return i;
 }
 
-static int minInt(int x, int y) { return x < y ? x : y; }
+static void stopChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]){
+  for (int i = 0; i < minInt(FORK_QUANT, fileQuant); i++) {
+    // closing the w-end, leads to the r-end receiving EOF
+    safeClose(sendTasks[i][WRITE]);
+    safeClose(getResults[i][READ]);
+  }
+}
 
 // https://www.tutorialspoint.com/unix_system_calls/_newselect.htm
 // https://jameshfisher.com/2017/02/24/what-is-mode_t/

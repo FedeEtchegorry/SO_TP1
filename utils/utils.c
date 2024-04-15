@@ -1,8 +1,13 @@
 #include "./utils.h"
 
+// General purpose functions
+
+int minInt(int x, int y) { return x < y ? x : y; }
+
+// Wrapper functions used for managing errors
+
 void perrorExit(const char* errMsg) {
   perror(errMsg);
-  // exit(EXIT_FAILURE);
   exit(errno);
 }
 
@@ -25,4 +30,11 @@ size_t safeWrite(int fd, void* buf, size_t nbytes) {
 
 void safePipe(int pipedes[2]) {
   if (pipe(pipedes) < 0) perrorExit("pipe() error");
+}
+
+void safeClose(int fd) {
+  if (close(fd) < 0) perrorExit("close() error");
+}
+void safeDup(int fd){
+  if (dup(fd) < 0) perrorExit("close() error");
 }
