@@ -14,10 +14,12 @@
 #include <utils.h>
 
 #define SHM_SIZE 8192
-#define BUFFER_SIZE 100
 #define SHM_NAME "/results"
+// User write, group read, other reads (is others necessary?)
+#define SHM_PERMISSIONS S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH
+
+#define BUFFER_SIZE 100
 #define SLAVE_CMD "./slave"
-#define RW_MODE 0666
 #define ERROR -1
 #define CHILD 0
 #define FORK_QUANT 5
@@ -39,7 +41,7 @@ int main(int argc, char* argv[]) {
     exitWithFailure("No files were passed\n");
   }
 
-  int shmFd = shm_open(SHM_NAME, O_CREAT | O_RDWR, RW_MODE);
+  int shmFd = shm_open(SHM_NAME, O_CREAT | O_RDWR, SHM_PERMISSIONS);
   if (shmFd == ERROR) perrorExit("Error while creating shm");
 
   if (ftruncate(shmFd, SHM_SIZE) == ERROR) perrorExit("ftruncate() error");
@@ -63,7 +65,7 @@ int main(int argc, char* argv[]) {
 
   fd_set rfds;
   int maxFd = getResults[childAmount - 1][READ];
-  char* iniAddress = shmBuf;
+  char* shmBufCurrent = shmBuf;
   int sentTasksCount = 0;
   int resultsCount = 0;
 
@@ -90,10 +92,9 @@ int main(int argc, char* argv[]) {
         char array[BUFFER_SIZE] = {0};
         safeRead(getResults[j][READ], array, sizeof(array));
         if (fprintf(file, "%s", array) < 0) exitWithFailure("fprint() error");
-        strcpy(shmBuf, array);
-        shmBuf += strlen(array) + 1;
-
         sem_post(smthAvailableToRead);
+        strcpy(shmBufCurrent, array);
+        shmBufCurrent += strlen(array) + 1;
         resultsCount++;
         if (sentTasksCount < fileQuant) {
           int length = strlen(argv[sentTasksCount]);
@@ -107,11 +108,8 @@ int main(int argc, char* argv[]) {
   stopChildren(fileQuant, sendTasks, getResults);
 
   if (fclose(file) == ERROR) perrorExit("fclose() error");
-
   if (sem_close(smthAvailableToRead) == ERROR) perrorExit("sem_close() error");
-
-  if (munmap(NULL, SHM_SIZE) == ERROR) perrorExit("munmap() error");
-
+  if (munmap(shmBuf, SHM_SIZE) == ERROR) perrorExit("munmap() error");
   if (shm_unlink(SHM_NAME) == ERROR) perrorExit("shm_unlink() error");
 
   exit(EXIT_SUCCESS);
