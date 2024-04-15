@@ -74,7 +74,7 @@ int main(int argc, char* argv[]) {
 
   int i = 0;
   // We start sending tasks to the slave processes
-  while (sentTasksCount < 2 * minInt(FORK_QUANT, fileQuant)) {
+  while (sentTasksCount < minInt(2 * FORK_QUANT, fileQuant)) {
     int length = strlen(argv[sentTasksCount]);
     // argv[sentTasksCount][length] = '\n';
     safeWrite(sendTasks[(i++) % FORK_QUANT][WRITE], argv[sentTasksCount], length + 1);
