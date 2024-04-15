@@ -9,11 +9,7 @@
 // buffer (It will be considered that every fgets will not reach the
 // last character of the BUFFER_SIZE)
 #define BUFFER_SIZE 10000
-#define SMALL_BUFFER 100
-
-// Must be included to avoid warnings
-FILE* popen(const char* command, const char* type);
-int pclose(FILE* stream);
+#define SMALL_BUFFER 1000
 
 void md5sum_caller(char* path, char* buffer);
 void return_md5sum_result(char* md5sum_buffer);
@@ -53,8 +49,8 @@ void md5sum_caller(char* path, char* buffer) {
   if (fp == NULL) perrorExit("peopen() error");
   // Fgets fills the buffer with the md5sum result
   if (fgets(buffer, SMALL_BUFFER, fp) == NULL) perrorExit("fgets() error");
-  if (pclose(fp) == -1) perrorExit("pclose() error");
   buffer[strlen(buffer) - 1] = '\0';
+  if (pclose(fp) == -1) perrorExit("pclose() error");
 }
 
 void return_md5sum_result(char* md5sum_buffer) {
