@@ -5,6 +5,7 @@
 #include <sys/select.h>
 // for ftruncate
 #define __USE_XOPEN_EXTENDED
+#include <globals.h>
 #include <semaphore.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -46,8 +47,8 @@ int main(int argc, char* argv[]) {
 
   if (ftruncate(shmFd, SHM_SIZE) == ERROR) perrorExit("ftruncate() error");
 
-  sem_t* smthAvailableToRead = sem_open("smthAvailableToRead", O_CREAT, RW_MODE, 0);
-  if (smthAvailableToRead == SEM_FAILED) perrorExit("sem_open() error");
+  sem_t* semaphore = sem_open(SEM_NAME, O_CREAT, SHM_PERMISSIONS, 0);
+  if (semaphore == SEM_FAILED) perrorExit("sem_open() error");
 
   puts(SHM_NAME);
   sleep(5);
@@ -92,10 +93,11 @@ int main(int argc, char* argv[]) {
         char array[BUFFER_SIZE] = {0};
         safeRead(getResults[j][READ], array, sizeof(array));
         if (fprintf(file, "%s", array) < 0) exitWithFailure("fprint() error");
-        sem_post(smthAvailableToRead);
         strcpy(shmBufCurrent, array);
         shmBufCurrent += strlen(array) + 1;
+        sem_post(semaphore);
         resultsCount++;
+
         if (sentTasksCount < fileQuant) {
           int length = strlen(argv[sentTasksCount]);
           safeWrite(sendTasks[j][WRITE], argv[sentTasksCount], length + 1);
@@ -108,7 +110,8 @@ int main(int argc, char* argv[]) {
   stopChildren(fileQuant, sendTasks, getResults);
 
   if (fclose(file) == ERROR) perrorExit("fclose() error");
-  if (sem_close(smthAvailableToRead) == ERROR) perrorExit("sem_close() error");
+  if (sem_unlink(SEM_NAME) == ERROR) perrorExit("sem_unlink() error");
+  if (sem_close(semaphore) == ERROR) perrorExit("sem_close() error");
   if (munmap(shmBuf, SHM_SIZE) == ERROR) perrorExit("munmap() error");
   if (shm_unlink(SHM_NAME) == ERROR) perrorExit("shm_unlink() error");
 
