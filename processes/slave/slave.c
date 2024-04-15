@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
 
   char filename_buffer[BUFFER_SIZE];
   size_t bytes_read;
-  char buf[1000];
+  char buf[SMALL_BUFFER];
   int j = 0;
   while ((bytes_read = safeRead(STDIN_FILENO, filename_buffer, SMALL_BUFFER)) != 0) {
     for (int i = 0; i < bytes_read; i++) {
@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
 
 void md5sum_caller(char* path, char* buffer) {
   // The md5sum call to be made
-  char md5sum_command[BUFFER_SIZE] = "md5sum ";
+  char md5sum_command[SMALL_BUFFER] = "md5sum ";
   // Add the file path to the md5sum_command
   strcpy(md5sum_command + strlen(md5sum_command), path);
   // Popen makes the fork call and creates the pipe, r means reading mode
