@@ -14,7 +14,7 @@
 #include <unistd.h>
 #include <utils.h>
 
-#define SHM_SIZE 8192
+// #define SHM_SIZE 8192
 #define SHM_NAME "/results"
 // User write, group read, other reads (is others necessary?)
 #define SHM_PERMISSIONS S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH
@@ -30,6 +30,7 @@ enum { READ = 0, WRITE = 1 };
 
 static int initializeChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]);
 static void stopChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]);
+int writeToShm(char* shmBuf, char* result, sem_t* semaphore);
 
 int main(int argc, char* argv[]) {
   char* path = dirname(argv[0]);
@@ -42,13 +43,11 @@ int main(int argc, char* argv[]) {
     exitWithFailure("No files were passed\n");
   }
 
-  int shmFd = shm_open(SHM_NAME, O_CREAT | O_RDWR, SHM_PERMISSIONS);
-  if (shmFd == ERROR) perrorExit("Error while creating shm");
+  int shmFd = safeShmOpen(SHM_NAME, O_CREAT | O_RDWR, SHM_PERMISSIONS);
 
-  if (ftruncate(shmFd, SHM_SIZE) == ERROR) perrorExit("ftruncate() error");
+  safeFtruncate(shmFd, SHM_SIZE);
 
-  sem_t* semaphore = sem_open(SEM_NAME, O_CREAT, SHM_PERMISSIONS, 0);
-  if (semaphore == SEM_FAILED) perrorExit("sem_open() error");
+  sem_t* semaphore = safeSemOpenCreate(SEM_NAME, SHM_PERMISSIONS, 0);
 
   puts(SHM_NAME);
   sleep(5);
@@ -90,14 +89,11 @@ int main(int argc, char* argv[]) {
     for (int j = 0; j < minInt(FORK_QUANT, fileQuant); j++) {
       if (FD_ISSET(getResults[j][READ], &rfds)) {
 
-        char array[BUFFER_SIZE] = {0};
-        safeRead(getResults[j][READ], array, sizeof(array));
-        if (fprintf(file, "%s", array) < 0) exitWithFailure("fprint() error");
-        strcpy(shmBufCurrent, array);
-        shmBufCurrent += strlen(array) + 1;
-        sem_post(semaphore);
+        char result[BUFFER_SIZE] = {0};
+        safeRead(getResults[j][READ], result, BUFFER_SIZE);
+        if (fprintf(file, "%s", result) < 0) exitWithFailure("fprint() error");
+        shmBufCurrent += writeToShm(shmBufCurrent, result, semaphore);
         resultsCount++;
-
         if (sentTasksCount < fileQuant) {
           int length = strlen(argv[sentTasksCount]);
           safeWrite(sendTasks[j][WRITE], argv[sentTasksCount], length + 1);
@@ -108,7 +104,10 @@ int main(int argc, char* argv[]) {
   }
 
   stopChildren(fileQuant, sendTasks, getResults);
+  // getchar();
 
+  // Si hacés ctrl+c antes de que se ejecute esto quedan la shm y el semaphore abiertos.
+  // Se puede solucinoar eso? (con señales supongo pero suena paja)
   if (fclose(file) == ERROR) perrorExit("fclose() error");
   if (sem_unlink(SEM_NAME) == ERROR) perrorExit("sem_unlink() error");
   if (sem_close(semaphore) == ERROR) perrorExit("sem_close() error");
@@ -116,6 +115,17 @@ int main(int argc, char* argv[]) {
   if (shm_unlink(SHM_NAME) == ERROR) perrorExit("shm_unlink() error");
 
   exit(EXIT_SUCCESS);
+}
+
+int writeToShm(char* shmBuf, char* result, sem_t* semaphore) {
+  int len = 0;
+  while (result[len] != '\n') {
+    shmBuf[len] = result[len];
+    ++len;
+  }
+  shmBuf[len++] = '\n';
+  sem_post(semaphore);
+  return len;
 }
 
 /*
@@ -158,7 +168,7 @@ static int initializeChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResul
   return i;
 }
 
-static void stopChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]){
+static void stopChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]) {
   for (int i = 0; i < minInt(FORK_QUANT, fileQuant); i++) {
     // closing the w-end, leads to the r-end receiving EOF
     safeClose(sendTasks[i][WRITE]);
