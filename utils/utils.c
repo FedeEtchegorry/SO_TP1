@@ -35,6 +35,34 @@ void safePipe(int pipedes[2]) {
 void safeClose(int fd) {
   if (close(fd) < 0) perrorExit("close() error");
 }
-void safeDup(int fd){
+void safeDup(int fd) {
   if (dup(fd) < 0) perrorExit("close() error");
+}
+
+int safeShmOpen(const char* name, int oflag, mode_t mode) {
+  int shmFd = shm_open(name, oflag, mode);
+  if (shmFd < 0) perrorExit("shm_open() error");
+  return shmFd;
+}
+
+void safeFtruncate(int fd, __off_t length) {
+  if (ftruncate(fd, length) < 0) exitWithFailure("ftruncate() error");
+}
+
+char* safeMmap(void* addr, size_t len, int prot, int flags, int fd, __off_t offset) {
+  char* shmBuf = mmap(addr, len, prot, flags, fd, offset);
+  if (shmBuf == MAP_FAILED) perrorExit("mmap() error");
+  return shmBuf;
+}
+
+sem_t* safeSemOpenCreate(const char* name, mode_t permissions, int initialValue) {
+  sem_t* semaphore = sem_open(name, O_CREAT, permissions, initialValue);
+  if (semaphore == SEM_FAILED) perrorExit("sem_open() error on create");
+  return semaphore;
+}
+
+sem_t* safeSemOpenRead(const char* name) {
+  sem_t* semaphore = sem_open(name, 0);
+  if (semaphore == SEM_FAILED) perrorExit("sem_open() error on read");
+  return semaphore;
 }
