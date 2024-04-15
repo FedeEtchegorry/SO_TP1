@@ -33,6 +33,8 @@ static void stopChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResults[])
 int writeToShm(char* shmBuf, char* result, sem_t* semaphore);
 
 int main(int argc, char* argv[]) {
+  setvbuf(stdout, NULL, _IONBF, 0);
+
   char* path = dirname(argv[0]);
   char* binName = basename(argv[0]);
   pid_t pid = getpid();
