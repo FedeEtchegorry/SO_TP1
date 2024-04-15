@@ -35,6 +35,7 @@ void safePipe(int pipedes[2]) {
 void safeClose(int fd) {
   if (close(fd) < 0) perrorExit("close() error");
 }
+
 void safeDup(int fd) {
   if (dup(fd) < 0) perrorExit("close() error");
 }
