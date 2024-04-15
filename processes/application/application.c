@@ -105,6 +105,8 @@ int main(int argc, char* argv[]) {
       }
     }
   }
+  // Write empty string (basically \0) to shm so view can know where it ends.
+  writeToShm(shmBufCurrent, "", semaphore);
 
   stopChildren(fileQuant, sendTasks, getResults);
   // getchar();

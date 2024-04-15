@@ -34,12 +34,11 @@ int main(int argc, char* argv[]) {
 }
 
 int readFromShm(char* buf, sem_t* sem) {
-  // printf("Reading result...\n");
+  sem_wait(sem);
   int len = 0;
   while (buf[len] != '\n' && buf[len] != 0) {
     putchar(buf[len++]);
   }
   putchar('\n');
-  sem_wait(sem);
-  return buf[len] == EOF ? -1 : ++len;
+  return buf[len] == 0 ? -1 : ++len;
 }
