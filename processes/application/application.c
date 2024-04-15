@@ -87,11 +87,8 @@ int main(int argc, char* argv[]) {
     for (int j = 0; j < minInt(FORK_QUANT, fileQuant); j++) {
       if (FD_ISSET(getResults[j][READ], &rfds)) {
 
-        char array[BUFFER_SIZE];
+        char array[BUFFER_SIZE] = {0};
         safeRead(getResults[j][READ], array, sizeof(array));
-        // Esto ta mal, del man page: If an output error is encountered, a negative value is returned
-        // Osea hay que ver que sea menor a 0, no que sea -1.
-        // if (fprintf(file, "%s", array) == ERROR) perrorExit("fprint error");
         if (fprintf(file, "%s", array) < 0) exitWithFailure("fprint() error");
         strcpy(shmBuf, array);
         shmBuf += strlen(array) + 1;
