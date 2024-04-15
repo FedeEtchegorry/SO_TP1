@@ -53,7 +53,7 @@ void md5sum_caller(char* path, char* buffer) {
   // check Popen failure
   if (fp == NULL) exitWithFailure("POPEN couldn´t be created successfully");
   // Fgets fills the buffer with the md5sum result
-  if (fgets(buffer, BUFFER_SIZE, fp) == NULL)
+  if (fgets(buffer, SMALL_BUFFER, fp) == NULL)
     exitWithFailure("FGETS was unsuccessful to read the data into the buffer");
   if (pclose(fp) == -1)
     exitWithFailure("PCLOSE couldn´t close successfully");
@@ -65,8 +65,7 @@ static void exitWithFailure(const char* errMsg) {
   exit(EXIT_FAILURE);
 }
 void return_md5sum_result(char* md5sum_buffer) {
-  size_t length = snprintf(NULL, 0, "%s - PROCESS PID %d\n", md5sum_buffer, getpid()) + 1;
-  char ret_md5sum[length];
-  snprintf(ret_md5sum, length, "%s - PROCESS PID %d\n", md5sum_buffer, getpid());
-  write(STDOUT_FILENO, ret_md5sum, length);
+  char ret_md5sum[SMALL_BUFFER];
+  snprintf(ret_md5sum, SMALL_BUFFER, "%s - PROCESS PID %d\n", md5sum_buffer, getpid());
+  write(STDOUT_FILENO, ret_md5sum, SMALL_BUFFER);
 }
