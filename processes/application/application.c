@@ -1,7 +1,7 @@
 #include <fcntl.h>
+#include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <limits.h>
 #include <sys/select.h>
 // for ftruncate
 #define __USE_XOPEN_EXTENDED
@@ -11,6 +11,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <utils.h>
+
 #define SHM_SIZE 8192
 #define BUFFER_SIZE 100
 #define SHM_NAME "/results"
@@ -19,39 +21,40 @@
 #define ERROR -1
 #define CHILD 0
 #define FORK_QUANT 5
+
 typedef int pipe_t[2];
 enum { READ = 0, WRITE = 1 };
 
 static int initializeChilds(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]);
 static int minInt(int x, int y);
-// can be a function for all files
-static void exitWithFailure(const char* errMsg);
 
 int main(int argc, char* argv[]) {
+  char* path = dirname(argv[0]);
+  char* binName = basename(argv[0]);
+  pid_t pid = getpid();
   // To start with the paths
   argv++;
   int fileQuant = argc - 1;
-  if (fileQuant < 1) exitWithFailure("No files were passed\n");
+  if (fileQuant < 1) {
+    exitWithFailure("No files were passed\n");
+  }
 
   int shmFd = shm_open(SHM_NAME, O_CREAT | O_RDWR, RW_MODE);
-  if (shmFd == ERROR) exitWithFailure("Error while creating shm\n");
+  if (shmFd == ERROR) perrorExit("Error while creating shm");
 
-  if (ftruncate(shmFd, SHM_SIZE) == ERROR)
-    exitWithFailure("Error while truncating shm\n");
+  if (ftruncate(shmFd, SHM_SIZE) == ERROR) perrorExit("ftruncate() error");
 
-  FILE* file= fopen("results.txt", "w+");
-  if (file==NULL)
-      exitWithFailure("Error while opening file");
+  FILE* file = fopen("results.txt", "w+");
+  if (file == NULL) perrorExit("fopen() error");
 
-  sem_t * smthAvailableToRead = sem_open("smthAvailableToRead", O_CREAT, RW_MODE, 0);
-  if(smthAvailableToRead == SEM_FAILED)
-    exitWithFailure("Error while creating semaphore\n");
+  sem_t* smthAvailableToRead = sem_open("smthAvailableToRead", O_CREAT, RW_MODE, 0);
+  if (smthAvailableToRead == SEM_FAILED) perrorExit("sem_open() error");
 
   puts(SHM_NAME);
   sleep(5);
 
   char* shmBuf = mmap(NULL, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
-  if (shmBuf == MAP_FAILED) exitWithFailure("Error while mapping shm\n");
+  if (shmBuf == MAP_FAILED) perrorExit("mmap() error");
 
   pipe_t sendTasks[FORK_QUANT];
   pipe_t getResults[FORK_QUANT];
@@ -68,7 +71,7 @@ int main(int argc, char* argv[]) {
   while (sentTasksCount < minInt(FORK_QUANT, fileQuant)) {
     int length = strlen(argv[sentTasksCount]);
     // argv[sentTasksCount][length] = '\n';
-    write(sendTasks[sentTasksCount][WRITE], argv[sentTasksCount], length + 1);
+    safeWrite(sendTasks[sentTasksCount][WRITE], argv[sentTasksCount], length + 1);
     sentTasksCount++;
   }
 
@@ -79,26 +82,25 @@ int main(int argc, char* argv[]) {
       FD_SET(getResults[j][READ], &rfds);
     }
 
-    if (select(maxFd + 1, &rfds, NULL, NULL, NULL) == ERROR)
-      exitWithFailure("Error while running select function\n");
+    if (select(maxFd + 1, &rfds, NULL, NULL, NULL) == ERROR) perrorExit("select() error");
 
     for (int j = 0; j < minInt(FORK_QUANT, fileQuant); j++) {
       if (FD_ISSET(getResults[j][READ], &rfds)) {
 
+        char array[BUFFER_SIZE];
+        safeRead(getResults[j][READ], array, sizeof(array));
+        // Esto ta mal, del man page: If an output error is encountered, a negative value is returned
+        // Osea hay que ver que sea menor a 0, no que sea -1.
+        // if (fprintf(file, "%s", array) == ERROR) perrorExit("fprint error");
+        if (fprintf(file, "%s", array) < 0) exitWithFailure("fprint() error");
+        strcpy(shmBuf, array);
+        shmBuf += strlen(array) + 1;
 
-          char array[BUFFER_SIZE];
-          if (read(getResults[j][READ], array, sizeof (array))==ERROR)
-              exitWithFailure("read error");
-          if (fprintf(file, "%s", array)==ERROR)
-              exitWithFailure("fprint error");
-          strcpy(shmBuf, array);
-          shmBuf+= strlen(array)+1;
-
-          sem_post(smthAvailableToRead);
+        sem_post(smthAvailableToRead);
         resultsCount++;
         if (sentTasksCount < fileQuant) {
           int length = strlen(argv[sentTasksCount]);
-          write(sendTasks[j][WRITE], argv[sentTasksCount], length + 1);
+          safeWrite(sendTasks[j][WRITE], argv[sentTasksCount], length + 1);
           sentTasksCount++;
         }
       }
@@ -111,18 +113,13 @@ int main(int argc, char* argv[]) {
     close(getResults[i][READ]);
   }
 
-  if (fclose(file)==ERROR)
-      exitWithFailure("Error while closing file");
+  if (fclose(file) == ERROR) perrorExit("fclose() error");
 
-  if(sem_close(smthAvailableToRead) == ERROR)
-    exitWithFailure("Error while closing semaphore\n");
+  if (sem_close(smthAvailableToRead) == ERROR) perrorExit("sem_close() error");
 
-  if (munmap(NULL, SHM_SIZE) == ERROR)
-    exitWithFailure("Error while unmapping shm\n");
-  
+  if (munmap(NULL, SHM_SIZE) == ERROR) perrorExit("munmap() error");
 
-  if (shm_unlink(SHM_NAME) == ERROR) 
-    exitWithFailure("Error while closing shm\n");
+  if (shm_unlink(SHM_NAME) == ERROR) perrorExit("shm_unlink() error");
 
   exit(EXIT_SUCCESS);
 }
@@ -135,17 +132,14 @@ int main(int argc, char* argv[]) {
 
   with i belonging to {0, ..., min(FORK_QUANT-1, fileQuant)}
   */
-static int
-initializeChilds(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]) {
+static int initializeChilds(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]) {
   int pid;
   int i;
   for (i = 0; i < minInt(FORK_QUANT, fileQuant); i++) {
-    if (pipe(sendTasks[i]) == ERROR)
-      exitWithFailure("Error while creating pipe\n");
-    if (pipe(getResults[i]) == ERROR)
-      exitWithFailure("Error while creating pipe\n");
+    if (pipe(sendTasks[i]) == ERROR) perrorExit("pipe() error");
+    if (pipe(getResults[i]) == ERROR) perrorExit("fork() error");
     pid = fork();
-    if (pid == ERROR) exitWithFailure("Error while creating slave process\n");
+    if (pid == ERROR) perrorExit("Error while creating slave process\n");
     else if (pid == CHILD) {
       close(READ);
       dup(sendTasks[i][READ]);
@@ -157,11 +151,11 @@ initializeChilds(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]) {
         close(sendTasks[j][WRITE]);
         close(getResults[j][READ]);
       }
-      
+
       char* argv[] = {SLAVE_CMD, NULL};
       char* envp[] = {NULL};
       execve(SLAVE_CMD, argv, envp);
-      exitWithFailure("Error while calling slave process\n");
+      perrorExit("execve() error");
     } else {
       close(sendTasks[i][READ]);
       close(getResults[i][WRITE]);
@@ -171,11 +165,6 @@ initializeChilds(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]) {
 }
 
 static int minInt(int x, int y) { return x < y ? x : y; }
-
-static void exitWithFailure(const char* errMsg) {
-  fprintf(stderr, "%s", errMsg);
-  exit(EXIT_FAILURE);
-}
 
 // https://www.tutorialspoint.com/unix_system_calls/_newselect.htm
 // https://jameshfisher.com/2017/02/24/what-is-mode_t/

@@ -2,19 +2,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <utils.h>
 
 #define ERROR (-1)
 // The buffer size is bigger than necessary to avoid overflowing the
 // buffer (It will be considered that every fgets will not reach the
 // last character of the BUFFER_SIZE)
 #define BUFFER_SIZE 10000
-#define SMALL_BUFFER 100
+#define SMALL_BUFFER 1000
 
 // Must be included to avoid warnings
 FILE* popen(const char* command, const char* type);
 int pclose(FILE* stream);
-
-static void exitWithFailure(const char* errMsg);
 
 void md5sum_caller(char* path, char* buffer);
 void return_md5sum_result(char* md5sum_buffer);
@@ -24,10 +23,7 @@ int main(int argc, char* argv[]) {
   size_t bytes_read;
   char buf[1000];
   int j = 0;
-  while ((bytes_read = read(STDIN_FILENO, filename_buffer, SMALL_BUFFER)) != 0) {
-    if (bytes_read == ERROR) {
-      exitWithFailure("READ failed");
-    }
+  while ((bytes_read = safeRead(STDIN_FILENO, filename_buffer, SMALL_BUFFER)) != 0) {
     for (int i = 0; i < bytes_read; i++) {
       if (filename_buffer[i] == '\n' || filename_buffer[i] == 0) {
         char md5sum_buffer[SMALL_BUFFER];
@@ -51,19 +47,13 @@ void md5sum_caller(char* path, char* buffer) {
   // Popen makes the fork call and creates the pipe, r means reading mode
   FILE* fp = popen(md5sum_command, "r");
   // check Popen failure
-  if (fp == NULL) exitWithFailure("POPEN couldn´t be created successfully");
+  if (fp == NULL) perrorExit("peopen() error");
   // Fgets fills the buffer with the md5sum result
-  if (fgets(buffer, SMALL_BUFFER, fp) == NULL)
-    exitWithFailure("FGETS was unsuccessful to read the data into the buffer");
-  if (pclose(fp) == -1)
-    exitWithFailure("PCLOSE couldn´t close successfully");
+  if (fgets(buffer, SMALL_BUFFER, fp) == NULL) perrorExit("fgets() error");
+  if (pclose(fp) == -1) perrorExit("pclose() error");
   buffer[strlen(buffer) - 1] = '\0';
 }
 
-static void exitWithFailure(const char* errMsg) {
-  perror(errMsg);
-  exit(EXIT_FAILURE);
-}
 void return_md5sum_result(char* md5sum_buffer) {
   printf("%s - PROCESS PID %d\n", md5sum_buffer, getpid());
 }
