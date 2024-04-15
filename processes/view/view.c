@@ -4,11 +4,9 @@
 
 #define PID_BUFFER 10
 #define ERROR (-1)
-// #define RW_MODE 0666
 #define SHM_NAME_BUF_SIZE 100
 // #define RESULT_BUF_SIZE 100
 
-// int app_process_exists();
 int readFromShm(char* buf, sem_t* sem);
 
 int main(int argc, char* argv[]) {
@@ -20,8 +18,7 @@ int main(int argc, char* argv[]) {
   shmName[shmNameLen] = 0;
   printf("From view shm name: %s\n", shmName);
 
-  int shmFd = safeShmOpen(shmName, O_RDONLY, 0 /* RW_MODE */);
-  // safeFtruncate(shmFd, SHM_SIZE);
+  int shmFd = safeShmOpen(shmName, O_RDONLY, 0);
   char* const shmBuf = safeMmap(NULL, SHM_SIZE, PROT_READ, MAP_SHARED, shmFd, 0);
   char* shmBufCurrent = shmBuf;
 
@@ -33,17 +30,11 @@ int main(int argc, char* argv[]) {
     resultLength = readFromShm(shmBufCurrent, enabledForRead);
     shmBufCurrent += resultLength;
   } while (resultLength > 0);
-  // while ((shmBuf[i] != '\0' || app_process_exists()) & (i < SIZE)) { // NEED SEMAPHORES!!!!
-  //   printf("%c", shmBuf[i++]);
-  // }
-
-  // if (shm_unlink(shmName) == ERROR) perrorExit("shm_unlink() error on view");
-
   return 0;
 }
 
 int readFromShm(char* buf, sem_t* sem) {
-  printf("Reading result...\n");
+  // printf("Reading result...\n");
   int len = 0;
   while (buf[len] != '\n' && buf[len] != 0) {
     putchar(buf[len++]);
@@ -52,22 +43,3 @@ int readFromShm(char* buf, sem_t* sem) {
   sem_wait(sem);
   return buf[len] == EOF ? -1 : ++len;
 }
-
-// int app_process_exists() { // This allows to check if the app is still running
-//   char line[PID_BUFFER];
-//   FILE* command = popen("pidof ./app", "r");
-//   if (command == NULL) {
-//     exitWithFailure("POPEN error");
-//   }
-//   if (fgets(line, PID_BUFFER, command) == NULL) {
-//     exitWithFailure("FGETS error");
-//   }
-//   pid_t pid = atoi(line);
-//   if (pid == 0) {
-//     exitWithFailure("ATOI error");
-//   }
-//   if (pclose(command) == ERROR) {
-//     exitWithFailure("PCLOSE error");
-//   };
-//   return pid;
-// }
