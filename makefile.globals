@@ -4,3 +4,5 @@ CFLAGS := --pedantic
 UTILS_BASE_DIR := utils
 OBJ_DIR := objs
 BIN_BASE_DIR := bin
+MAKE_UTILS := make_utils
+MAKE_PROC := make_process

@@ -3,3 +3,4 @@
 bin/
 files/
 .bash_history
+.clangd

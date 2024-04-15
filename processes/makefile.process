@@ -24,10 +24,10 @@ $(OBJ_DIR):
 	mkdir $(@)
 
 $(OBJ_DIR)/%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c -I$(UTILS_DIR) $< -o $@
 
 $(UTILS_DIR)/$(OBJ_DIR)/%.o: $(UTILS_DIR)/%.c
-	$(MAKE) -C $(UTILS_DIR) $(OBJ_DIR)/$*.o
+	$(MAKE) -C $(UTILS_DIR) -f $(MAKE_UTILS) $(OBJ_DIR)/$*.o
 
 clean:
 	rm -rf $(OBJ_DIR)
