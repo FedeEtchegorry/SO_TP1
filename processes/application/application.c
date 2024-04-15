@@ -136,8 +136,8 @@ static int initializeChilds(int fileQuant, pipe_t sendTasks[], pipe_t getResults
   int pid;
   int i;
   for (i = 0; i < minInt(FORK_QUANT, fileQuant); i++) {
-    if (pipe(sendTasks[i]) == ERROR) perrorExit("pipe() error");
-    if (pipe(getResults[i]) == ERROR) perrorExit("fork() error");
+    safePipe(sendTasks[i]);
+    safePipe(getResults[i]);
     pid = fork();
     if (pid == ERROR) perrorExit("Error while creating slave process\n");
     else if (pid == CHILD) {

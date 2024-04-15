@@ -22,3 +22,7 @@ size_t safeWrite(int fd, void* buf, size_t nbytes) {
   if (w < 0) perrorExit("read error");
   return w;
 }
+
+void safePipe(int pipedes[2]) {
+  if (pipe(pipedes) < 0) perrorExit("pipe() error");
+}
