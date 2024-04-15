@@ -19,7 +19,7 @@
 // User write, group read, other reads (is others necessary?)
 #define SHM_PERMISSIONS S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH
 
-#define BUFFER_SIZE 100
+#define BUFFER_SIZE 1000
 #define SLAVE_CMD "./slave"
 #define ERROR -1
 #define CHILD 0
@@ -71,12 +71,13 @@ int main(int argc, char* argv[]) {
   int sentTasksCount = 0;
   int resultsCount = 0;
 
+  int i=0;
   // We start sending tasks to the slave processes
-  while (sentTasksCount < minInt(FORK_QUANT, fileQuant)) {
-    int length = strlen(argv[sentTasksCount]);
-    // argv[sentTasksCount][length] = '\n';
-    safeWrite(sendTasks[sentTasksCount][WRITE], argv[sentTasksCount], length + 1);
-    sentTasksCount++;
+  while (sentTasksCount < 2*minInt(FORK_QUANT, fileQuant)) {
+     int length = strlen(argv[sentTasksCount]);
+     // argv[sentTasksCount][length] = '\n';
+     safeWrite(sendTasks[(i++)%FORK_QUANT][WRITE], argv[sentTasksCount], length + 1);
+     sentTasksCount++;
   }
 
   while (resultsCount < fileQuant) {
