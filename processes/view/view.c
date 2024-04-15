@@ -30,7 +30,6 @@ int main(int argc, char* argv[]) {
 
   int resultLength = 0;
   do {
-    printf("Reading result...\n");
     resultLength = readFromShm(shmBufCurrent, enabledForRead);
     shmBufCurrent += resultLength;
   } while (resultLength > 0);
@@ -38,16 +37,18 @@ int main(int argc, char* argv[]) {
   //   printf("%c", shmBuf[i++]);
   // }
 
-  if (shm_unlink(shmName) == ERROR) perrorExit("shm_unlink() error on view");
+  // if (shm_unlink(shmName) == ERROR) perrorExit("shm_unlink() error on view");
 
   return 0;
 }
 
 int readFromShm(char* buf, sem_t* sem) {
+  printf("Reading result...\n");
   int len = 0;
-  while (buf[len] != '\n' && buf[len] != EOF) {
-    printf("%c", buf[len++]);
+  while (buf[len] != '\n' && buf[len] != 0) {
+    putchar(buf[len++]);
   }
+  putchar('\n');
   sem_wait(sem);
   return buf[len] == EOF ? -1 : ++len;
 }
