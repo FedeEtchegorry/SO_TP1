@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #define SHM_SIZE 8192
+#define BUFFER_SIZE 100
 #define SHM_NAME "/results"
 #define SLAVE_CMD "./slave"
 #define RW_MODE 0666
@@ -21,8 +22,7 @@
 typedef int pipe_t[2];
 enum { READ = 0, WRITE = 1 };
 
-static int
-initializeChilds(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]);
+static int initializeChilds(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]);
 static int minInt(int x, int y);
 // can be a function for all files
 static void exitWithFailure(const char* errMsg);
@@ -38,6 +38,10 @@ int main(int argc, char* argv[]) {
 
   if (ftruncate(shmFd, SHM_SIZE) == ERROR)
     exitWithFailure("Error while truncating shm\n");
+
+  FILE* file= fopen("results.txt", "w+");
+  if (file==NULL)
+      exitWithFailure("Error while opening file");
 
   sem_t * smthAvailableToRead = sem_open("smthAvailableToRead", O_CREAT, RW_MODE, 0);
   if(smthAvailableToRead == SEM_FAILED)
@@ -80,8 +84,17 @@ int main(int argc, char* argv[]) {
 
     for (int j = 0; j < minInt(FORK_QUANT, fileQuant); j++) {
       if (FD_ISSET(getResults[j][READ], &rfds)) {
-        shmBuf += read(getResults[j][READ], shmBuf, SHM_SIZE - (shmBuf - iniAddress));
-        sem_post(smthAvailableToRead);
+
+
+          char array[BUFFER_SIZE];
+          if (read(getResults[j][READ], array, sizeof (array))==ERROR)
+              exitWithFailure("read error");
+          if (fprintf(file, "%s", array)==ERROR)
+              exitWithFailure("fprint error");
+          strcpy(shmBuf, array);
+          shmBuf+= strlen(array)+1;
+
+          sem_post(smthAvailableToRead);
         resultsCount++;
         if (sentTasksCount < fileQuant) {
           int length = strlen(argv[sentTasksCount]);
@@ -98,10 +111,13 @@ int main(int argc, char* argv[]) {
     close(getResults[i][READ]);
   }
 
+  if (fclose(file)==ERROR)
+      exitWithFailure("Error while closing file");
+
   if(sem_close(smthAvailableToRead) == ERROR)
     exitWithFailure("Error while closing semaphore\n");
 
-  if (munmap(NULL, SHM_SIZE) == ERROR) 
+  if (munmap(NULL, SHM_SIZE) == ERROR)
     exitWithFailure("Error while unmapping shm\n");
   
 
