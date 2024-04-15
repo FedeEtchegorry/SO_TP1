@@ -65,7 +65,5 @@ static void exitWithFailure(const char* errMsg) {
   exit(EXIT_FAILURE);
 }
 void return_md5sum_result(char* md5sum_buffer) {
-  char ret_md5sum[SMALL_BUFFER];
-  snprintf(ret_md5sum, SMALL_BUFFER, "%s - PROCESS PID %d\n", md5sum_buffer, getpid());
-  write(STDOUT_FILENO, ret_md5sum, SMALL_BUFFER);
+  printf("%s - PROCESS PID %d\n", md5sum_buffer, getpid());
 }
