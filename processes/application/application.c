@@ -44,9 +44,6 @@ int main(int argc, char* argv[]) {
 
   if (ftruncate(shmFd, SHM_SIZE) == ERROR) perrorExit("ftruncate() error");
 
-  FILE* file = fopen("results.txt", "w+");
-  if (file == NULL) perrorExit("fopen() error");
-
   sem_t* smthAvailableToRead = sem_open("smthAvailableToRead", O_CREAT, RW_MODE, 0);
   if (smthAvailableToRead == SEM_FAILED) perrorExit("sem_open() error");
 
@@ -60,6 +57,9 @@ int main(int argc, char* argv[]) {
   pipe_t getResults[FORK_QUANT];
 
   int childAmount = initializeChildren(fileQuant, sendTasks, getResults);
+
+  FILE* file = fopen("results.txt", "w+");
+  if (file == NULL) perrorExit("fopen() error");
 
   fd_set rfds;
   int maxFd = getResults[childAmount - 1][READ];
