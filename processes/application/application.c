@@ -92,12 +92,12 @@ int main(int argc, char* argv[]) {
     close(getResults[i][READ]);
   }
 
-  if (munmap(shmBuf, SHM_SIZE) == ERROR) {
+  if (munmap(NULL, SHM_SIZE) == ERROR) {
     perror("munmap() error");
     exitWithFailure("Error while unmapping shm\n");
   }
 
-  if (close(shmFd) == ERROR) exitWithFailure("Error while closing shm\n");
+  if (shm_unlink(SHM_NAME) == ERROR) exitWithFailure("Error while closing shm\n");
 
   exit(EXIT_SUCCESS);
 }
