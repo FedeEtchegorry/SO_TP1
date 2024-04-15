@@ -24,8 +24,7 @@ int main(int argc, char* argv[]) {
   size_t bytes_read;
   char buf[1000];
   int j = 0;
-  while ((bytes_read = read(STDIN_FILENO, filename_buffer, SMALL_BUFFER)) != 0
-  ) {
+  while ((bytes_read = read(STDIN_FILENO, filename_buffer, SMALL_BUFFER)) != 0) {
     if (bytes_read == ERROR) {
       exitWithFailure("READ failed");
     }
@@ -35,7 +34,6 @@ int main(int argc, char* argv[]) {
         buf[j] = '\0';
         j = 0;
         md5sum_caller(buf, md5sum_buffer);
-        md5sum_buffer[strlen(md5sum_buffer) - 1] = '\0';
         return_md5sum_result(md5sum_buffer);
       } else {
         buf[j++] = filename_buffer[i];
@@ -57,7 +55,9 @@ void md5sum_caller(char* path, char* buffer) {
   // Fgets fills the buffer with the md5sum result
   if (fgets(buffer, BUFFER_SIZE, fp) == NULL)
     exitWithFailure("FGETS was unsuccessful to read the data into the buffer");
-  if (pclose(fp) == -1) exitWithFailure("PCLOSE couldn´t close successfully");
+  if (pclose(fp) == -1)
+    exitWithFailure("PCLOSE couldn´t close successfully");
+  buffer[strlen(buffer) - 1] = '\0';
 }
 
 static void exitWithFailure(const char* errMsg) {
@@ -65,11 +65,8 @@ static void exitWithFailure(const char* errMsg) {
   exit(EXIT_FAILURE);
 }
 void return_md5sum_result(char* md5sum_buffer) {
-  size_t length =
-      snprintf(NULL, 0, "%s - PROCESS PID %d\n", md5sum_buffer, getpid()) + 1;
+  size_t length = snprintf(NULL, 0, "%s - PROCESS PID %d\n", md5sum_buffer, getpid()) + 1;
   char ret_md5sum[length];
-  snprintf(
-      ret_md5sum, length, "%s - PROCESS PID %d\n", md5sum_buffer, getpid()
-  );
+  snprintf(ret_md5sum, length, "%s - PROCESS PID %d\n", md5sum_buffer, getpid());
   write(STDOUT_FILENO, ret_md5sum, length);
 }
