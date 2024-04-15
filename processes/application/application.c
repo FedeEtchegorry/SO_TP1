@@ -1,6 +1,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <sys/select.h>
 // for ftruncate
 #define __USE_XOPEN_EXTENDED
@@ -37,6 +38,10 @@ int main(int argc, char* argv[]) {
 
   if (ftruncate(shmFd, SHM_SIZE) == ERROR)
     exitWithFailure("Error while truncating shm\n");
+
+  sem_t * smthAvailableToRead = sem_open("smthAvailableToRead", O_CREAT, RW_MODE, 0);
+  if(smthAvailableToRead == SEM_FAILED)
+    exitWithFailure("Error while creating semaphore\n");
 
   puts(SHM_NAME);
   sleep(5);
@@ -76,6 +81,7 @@ int main(int argc, char* argv[]) {
     for (int j = 0; j < minInt(FORK_QUANT, fileQuant); j++) {
       if (FD_ISSET(getResults[j][READ], &rfds)) {
         shmBuf += read(getResults[j][READ], shmBuf, SHM_SIZE - (shmBuf - iniAddress));
+        sem_post(smthAvailableToRead);
         resultsCount++;
         if (sentTasksCount < fileQuant) {
           int length = strlen(argv[sentTasksCount]);
@@ -92,12 +98,15 @@ int main(int argc, char* argv[]) {
     close(getResults[i][READ]);
   }
 
-  if (munmap(NULL, SHM_SIZE) == ERROR) {
-    perror("munmap() error");
-    exitWithFailure("Error while unmapping shm\n");
-  }
+  if(sem_close(smthAvailableToRead) == ERROR)
+    exitWithFailure("Error while closing semaphore\n");
 
-  if (shm_unlink(SHM_NAME) == ERROR) exitWithFailure("Error while closing shm\n");
+  if (munmap(NULL, SHM_SIZE) == ERROR) 
+    exitWithFailure("Error while unmapping shm\n");
+  
+
+  if (shm_unlink(SHM_NAME) == ERROR) 
+    exitWithFailure("Error while closing shm\n");
 
   exit(EXIT_SUCCESS);
 }
@@ -132,7 +141,7 @@ initializeChilds(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]) {
         close(sendTasks[j][WRITE]);
         close(getResults[j][READ]);
       }
-
+      
       char* argv[] = {SLAVE_CMD, NULL};
       char* envp[] = {NULL};
       execve(SLAVE_CMD, argv, envp);

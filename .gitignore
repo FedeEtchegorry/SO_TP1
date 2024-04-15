@@ -2,3 +2,4 @@
 **/objs/
 bin/
 files/
+.bash_history
