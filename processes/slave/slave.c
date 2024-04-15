@@ -54,5 +54,9 @@ void md5sum_caller(char* path, char* buffer) {
 }
 
 void return_md5sum_result(char* md5sum_buffer) {
-  printf("%s - PROCESS PID %d\n", md5sum_buffer, getpid());
+    char ret_md5sum[SMALL_BUFFER];
+    snprintf(ret_md5sum, SMALL_BUFFER, "%s - PROCESS PID %d\n", md5sum_buffer, getpid());
+    write(STDOUT_FILENO, ret_md5sum, SMALL_BUFFER);
+    // printf("%s - PROCESS PID %d\n", md5sum_buffer, getpid());
+    //printf("%s - PROCESS PID %d\n", md5sum_buffer, getpid());
 }
