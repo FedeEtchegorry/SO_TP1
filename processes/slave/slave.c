@@ -16,7 +16,7 @@ void return_md5sum_result(char* md5sum_buffer);
 
 int main(int argc, char* argv[]) {
   // Disable buffering on stdout so printf works on pipes.
-  setvbuf(stdout, NULL, _IONBF, 0);
+  // setvbuf(stdout, NULL, _IONBF, 0);
 
   char filename_buffer[BUFFER_SIZE];
   size_t bytes_read;
