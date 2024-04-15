@@ -1,5 +1,7 @@
 #include <globals.h>
+#include <semaphore.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <utils.h>
 
 #define PID_BUFFER 10
@@ -16,13 +18,11 @@ int main(int argc, char* argv[]) {
   char c;
   while ((c = getchar()) != '\n' && c != EOF) shmName[shmNameLen++] = c;
   shmName[shmNameLen] = 0;
-  printf("From view shm name: %s\n", shmName);
 
   int shmFd = safeShmOpen(shmName, O_RDONLY, 0);
   char* const shmBuf = safeMmap(NULL, SHM_SIZE, PROT_READ, MAP_SHARED, shmFd, 0);
   char* shmBufCurrent = shmBuf;
 
-  printf("sem name: %s\n", SEM_NAME);
   sem_t* enabledForRead = safeSemOpenRead(SEM_NAME);
 
   int resultLength = 0;
@@ -30,6 +30,10 @@ int main(int argc, char* argv[]) {
     resultLength = readFromShm(shmBufCurrent, enabledForRead);
     shmBufCurrent += resultLength;
   } while (resultLength > 0);
+
+  close(shmFd);
+  if (munmap(shmBuf, SHM_SIZE) == ERROR) perrorExit("munmap() error");
+  sem_close(enabledForRead);
   return 0;
 }
 

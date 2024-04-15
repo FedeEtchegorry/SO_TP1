@@ -115,9 +115,8 @@ int main(int argc, char* argv[]) {
   // Si hacés ctrl+c antes de que se ejecute esto quedan la shm y el semaphore abiertos.
   // Se puede solucinoar eso? (con señales supongo pero suena paja)
   if (fclose(file) == ERROR) perrorExit("fclose() error");
-  if (sem_unlink(SEM_NAME) == ERROR) perrorExit("sem_unlink() error");
-  if (sem_close(semaphore) == ERROR) perrorExit("sem_close() error");
   if (munmap(shmBuf, SHM_SIZE) == ERROR) perrorExit("munmap() error");
+  if (sem_unlink(SEM_NAME) == ERROR) perrorExit("sem_unlink() error");
   if (shm_unlink(SHM_NAME) == ERROR) perrorExit("shm_unlink() error");
 
   exit(EXIT_SUCCESS);
