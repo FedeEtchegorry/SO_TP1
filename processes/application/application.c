@@ -25,7 +25,7 @@
 typedef int pipe_t[2];
 enum { READ = 0, WRITE = 1 };
 
-static int initializeChilds(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]);
+static int initializeChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]);
 static int minInt(int x, int y);
 
 int main(int argc, char* argv[]) {
@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
   pipe_t sendTasks[FORK_QUANT];
   pipe_t getResults[FORK_QUANT];
 
-  int childAmount = initializeChilds(fileQuant, sendTasks, getResults);
+  int childAmount = initializeChildren(fileQuant, sendTasks, getResults);
 
   fd_set rfds;
   int maxFd = getResults[childAmount - 1][READ];
@@ -132,7 +132,7 @@ int main(int argc, char* argv[]) {
 
   with i belonging to {0, ..., min(FORK_QUANT-1, fileQuant)}
   */
-static int initializeChilds(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]) {
+static int initializeChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]) {
   int pid;
   int i;
   for (i = 0; i < minInt(FORK_QUANT, fileQuant); i++) {
