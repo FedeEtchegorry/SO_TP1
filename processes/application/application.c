@@ -1,14 +1,12 @@
 #include <fcntl.h>
+#include <globals.h>
 #include <libgen.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/select.h>
-// for ftruncate
-#define __USE_XOPEN_EXTENDED
-#include <globals.h>
-#include <semaphore.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -61,8 +59,9 @@ int main(int argc, char* argv[]) {
   pipe_t getResults[FORK_QUANT];
 
   char slaveCmd[CMD_BUFFER_SIZE];
-  strcpy(slaveCmd, path); strcat(slaveCmd, SLAVE_RAW_CMD); 
-  
+  strcpy(slaveCmd, path);
+  strcat(slaveCmd, SLAVE_RAW_CMD);
+
   int childAmount = initializeChildren(fileQuant, sendTasks, getResults, slaveCmd);
 
   FILE* file = fopen("results.txt", "w+");
@@ -107,14 +106,16 @@ int main(int argc, char* argv[]) {
       }
     }
   }
+
   // Write empty string (basically \0) to shm so view can know where it ends.
   writeToShm(shmBufCurrent, "", semaphore);
 
   stopChildren(fileQuant, sendTasks, getResults);
 
   if (fclose(file) == ERROR) perrorExit("fclose() error");
-  if (munmap(shmBuf, SHM_SIZE) == ERROR) perrorExit("munmap() error");
+  safeMunmap(shmBuf, SHM_SIZE);
   if (sem_unlink(SEM_NAME) == ERROR) perrorExit("sem_unlink() error");
+  safeSemClose(semaphore);
   if (shm_unlink(SHM_NAME) == ERROR) perrorExit("shm_unlink() error");
 
   exit(EXIT_SUCCESS);

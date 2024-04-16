@@ -56,6 +56,10 @@ char* safeMmap(void* addr, size_t len, int prot, int flags, int fd, __off_t offs
   return shmBuf;
 }
 
+void safeMunmap(void* addr, size_t len) {
+  if (munmap(addr, len) < 0) perrorExit("munmap() error");
+}
+
 sem_t* safeSemOpenCreate(const char* name, mode_t permissions, int initialValue) {
   sem_t* semaphore = sem_open(name, O_CREAT, permissions, initialValue);
   if (semaphore == SEM_FAILED) perrorExit("sem_open() error on create");
@@ -66,4 +70,8 @@ sem_t* safeSemOpenRead(const char* name) {
   sem_t* semaphore = sem_open(name, 0);
   if (semaphore == SEM_FAILED) perrorExit("sem_open() error on read");
   return semaphore;
+}
+
+void safeSemClose(sem_t* sem) {
+  if (sem_close(sem) < 0) perrorExit("sem_close() error");
 }
