@@ -23,7 +23,7 @@ ssize_t safeRead(int fd, void* buf, size_t nbytes) {
 }
 
 ssize_t safeWrite(int fd, void* buf, size_t nbytes) {
-  size_t w = write(fd, buf, nbytes);
+  ssize_t w = write(fd, buf, nbytes);
   if (w < 0) perrorExit("read error");
   return w;
 }
