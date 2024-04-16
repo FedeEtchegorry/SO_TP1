@@ -32,7 +32,7 @@ int writeToShm(char* shmBuf, char* result, sem_t* semaphore);
 int main(int argc, char* argv[]) {
 
   // To save the path where the slave command is
-  char* path = dirname(argv[0]);
+  char* executablePath = dirname(argv[0]);
   // To start with the paths
   argv++;
 
@@ -42,7 +42,6 @@ int main(int argc, char* argv[]) {
   }
 
   int shmFd = safeShmOpen(SHM_NAME, O_CREAT | O_RDWR, SHM_PERMISSIONS);
-
   safeFtruncate(shmFd, SHM_SIZE);
 
   sem_t* semaphore = safeSemOpenCreate(SEM_NAME, SHM_PERMISSIONS, 0);
@@ -57,9 +56,8 @@ int main(int argc, char* argv[]) {
 
   pipe_t sendTasks[FORK_QUANT];
   pipe_t getResults[FORK_QUANT];
-
   char slaveCmd[CMD_BUFFER_SIZE];
-  strcpy(slaveCmd, path);
+  strcpy(slaveCmd, executablePath);
   strcat(slaveCmd, SLAVE_RAW_CMD);
 
   int childAmount = initializeChildren(fileQuant, sendTasks, getResults, slaveCmd);
@@ -92,7 +90,6 @@ int main(int argc, char* argv[]) {
 
     for (int j = 0; j < minInt(FORK_QUANT, fileQuant); j++) {
       if (FD_ISSET(getResults[j][READ], &rfds)) {
-
         char result[BUFFER_SIZE] = {0};
         safeRead(getResults[j][READ], result, BUFFER_SIZE);
         if (fprintf(file, "%s", result) < 0) exitWithFailure("fprint() error");

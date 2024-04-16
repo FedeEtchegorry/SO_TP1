@@ -7,15 +7,14 @@
 #define PID_BUFFER 10
 #define ERROR (-1)
 #define SHM_NAME_BUF_SIZE 100
-// #define RESULT_BUF_SIZE 100
 
 int readFromShm(char* buf, sem_t* sem);
 
 int main(int argc, char* argv[]) {
-  // Lo hago con getchar para evitar tener que reemplazar el \n
+  // I'll do it with getchar to avoid replacing the '\n'
   char shmName[SHM_NAME_BUF_SIZE];
   int shmNameLen = 0;
-  char c;
+  int c;
   while ((c = getchar()) != '\n' && c != EOF) shmName[shmNameLen++] = c;
   shmName[shmNameLen] = 0;
 
