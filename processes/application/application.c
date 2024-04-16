@@ -14,11 +14,9 @@
 #include <unistd.h>
 #include <utils.h>
 
-// #define SHM_SIZE 8192
 #define SHM_NAME "/results"
 // User write, group read, other reads (is others necessary?)
 #define SHM_PERMISSIONS S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH
-
 #define BUFFER_SIZE 1000
 #define CMD_BUFFER_SIZE 150
 #define SLAVE_RAW_CMD "/slave"
@@ -80,7 +78,6 @@ int main(int argc, char* argv[]) {
   // We start sending tasks to the slave processes
   while (sentTasksCount < minInt(2 * FORK_QUANT, fileQuant)) {
     int length = strlen(argv[sentTasksCount]);
-    // argv[sentTasksCount][length] = '\n';
     safeWrite(sendTasks[(i++) % FORK_QUANT][WRITE], argv[sentTasksCount], length + 1);
     sentTasksCount++;
   }
@@ -114,10 +111,7 @@ int main(int argc, char* argv[]) {
   writeToShm(shmBufCurrent, "", semaphore);
 
   stopChildren(fileQuant, sendTasks, getResults);
-  // getchar();
 
-  // Si hacés ctrl+c antes de que se ejecute esto quedan la shm y el semaphore abiertos.
-  // Se puede solucinoar eso? (con señales supongo pero suena paja)
   if (fclose(file) == ERROR) perrorExit("fclose() error");
   if (munmap(shmBuf, SHM_SIZE) == ERROR) perrorExit("munmap() error");
   if (sem_unlink(SEM_NAME) == ERROR) perrorExit("sem_unlink() error");
@@ -165,7 +159,6 @@ static int initializeChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResul
         safeClose(getResults[j][READ]);
       }
 
-      printf(slaveCmd);
       char* argv[] = {slaveCmd, NULL};
       char* envp[] = {NULL};
       execve(slaveCmd, argv, envp);
@@ -185,8 +178,3 @@ static void stopChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResults[])
     safeClose(getResults[i][READ]);
   }
 }
-
-// https://www.tutorialspoint.com/unix_system_calls/_newselect.htm
-// https://jameshfisher.com/2017/02/24/what-is-mode_t/
-// https://man7.org/linux/man-pages/man2/mmap.2.html
-// shared memory is stored in /dev/shm/results

@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
   // setvbuf(stdout, NULL, _IONBF, 0);
 
   char filename_buffer[BUFFER_SIZE];
-  size_t bytes_read;
+  ssize_t bytes_read;
   char buf[SMALL_BUFFER];
   int j = 0;
   while ((bytes_read = safeRead(STDIN_FILENO, filename_buffer, SMALL_BUFFER)) != 0) {
@@ -39,15 +39,11 @@ int main(int argc, char* argv[]) {
 }
 
 void md5sum_caller(char* path, char* buffer) {
-  // The md5sum call to be made
   char md5sum_command[SMALL_BUFFER] = "md5sum ";
   // Add the file path to the md5sum_command
   strcpy(md5sum_command + strlen(md5sum_command), path);
-  // Popen makes the fork call and creates the pipe, r means reading mode
   FILE* fp = popen(md5sum_command, "r");
-  // check Popen failure
   if (fp == NULL) perrorExit("peopen() error");
-  // Fgets fills the buffer with the md5sum result
   if (fgets(buffer, SMALL_BUFFER, fp) == NULL) perrorExit("fgets() error");
   buffer[strlen(buffer) - 1] = '\0';
   if (pclose(fp) == -1) perrorExit("pclose() error");
@@ -57,6 +53,4 @@ void return_md5sum_result(char* md5sum_buffer) {
   char ret_md5sum[SMALL_BUFFER];
   snprintf(ret_md5sum, SMALL_BUFFER, "%s - PROCESS PID %d\n", md5sum_buffer, getpid());
   write(STDOUT_FILENO, ret_md5sum, SMALL_BUFFER);
-  // printf("%s - PROCESS PID %d\n", md5sum_buffer, getpid());
-  // printf("%s - PROCESS PID %d\n", md5sum_buffer, getpid());
 }
