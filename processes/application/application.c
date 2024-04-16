@@ -20,7 +20,8 @@
 #define SHM_PERMISSIONS S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH
 
 #define BUFFER_SIZE 1000
-#define SLAVE_CMD "./slave"
+#define CMD_BUFFER_SIZE 150
+#define SLAVE_RAW_CMD "/slave"
 #define ERROR -1
 #define CHILD 0
 #define FORK_QUANT 5
@@ -28,19 +29,17 @@
 typedef int pipe_t[2];
 enum { READ = 0, WRITE = 1 };
 
-static int initializeChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]);
+static int initializeChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResults[], char slaveCmd[]);
 static void stopChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]);
 int writeToShm(char* shmBuf, char* result, sem_t* semaphore);
 
 int main(int argc, char* argv[]) {
-  // Set line buffering so the SHM_NAME gets sent as soon it's printed to stdout.
-  setvbuf(stdout, NULL, _IOLBF, 0);
 
+  // To save the path where the slave command is
   char* path = dirname(argv[0]);
-  char* binName = basename(argv[0]);
-  pid_t pid = getpid();
   // To start with the paths
   argv++;
+
   int fileQuant = argc - 1;
   if (fileQuant < 1) {
     exitWithFailure("No files were passed\n");
@@ -52,6 +51,8 @@ int main(int argc, char* argv[]) {
 
   sem_t* semaphore = safeSemOpenCreate(SEM_NAME, SHM_PERMISSIONS, 0);
 
+  // Set line buffering so the SHM_NAME gets sent as soon it's printed to stdout.
+  setvbuf(stdout, NULL, _IOLBF, 0);
   puts(SHM_NAME);
   sleep(5);
 
@@ -61,7 +62,10 @@ int main(int argc, char* argv[]) {
   pipe_t sendTasks[FORK_QUANT];
   pipe_t getResults[FORK_QUANT];
 
-  int childAmount = initializeChildren(fileQuant, sendTasks, getResults);
+  char slaveCmd[CMD_BUFFER_SIZE];
+  strcpy(slaveCmd, path); strcat(slaveCmd, SLAVE_RAW_CMD); 
+  
+  int childAmount = initializeChildren(fileQuant, sendTasks, getResults, slaveCmd);
 
   FILE* file = fopen("results.txt", "w+");
   if (file == NULL) perrorExit("fopen() error");
@@ -141,7 +145,7 @@ int writeToShm(char* shmBuf, char* result, sem_t* semaphore) {
 
   with i belonging to {0, ..., min(FORK_QUANT-1, fileQuant)}
   */
-static int initializeChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResults[]) {
+static int initializeChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResults[], char slaveCmd[]) {
   int pid;
   int i;
   for (i = 0; i < minInt(FORK_QUANT, fileQuant); i++) {
@@ -161,9 +165,10 @@ static int initializeChildren(int fileQuant, pipe_t sendTasks[], pipe_t getResul
         safeClose(getResults[j][READ]);
       }
 
-      char* argv[] = {SLAVE_CMD, NULL};
+      printf(slaveCmd);
+      char* argv[] = {slaveCmd, NULL};
       char* envp[] = {NULL};
-      execve(SLAVE_CMD, argv, envp);
+      execve(slaveCmd, argv, envp);
       perrorExit("execve() error");
     } else {
       safeClose(sendTasks[i][READ]);
