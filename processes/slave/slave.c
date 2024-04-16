@@ -8,7 +8,7 @@
 // The buffer size is bigger than necessary to avoid overflowing the
 // buffer (It will be considered that every fgets will not reach the
 // last character of the BUFFER_SIZE)
-#define BUFFER_SIZE 10000
+#define BUFFER_SIZE 50000
 #define SMALL_BUFFER 1000
 
 void md5sum_caller(char* path, char* buffer);
