@@ -31,9 +31,10 @@ int main(int argc, char* argv[]) {
     shmBufCurrent += resultLength;
   } while (resultLength > 0);
 
+    sem_close(enabledForRead);
   close(shmFd);
   if (munmap(shmBuf, SHM_SIZE) == ERROR) perrorExit("munmap() error");
-  sem_close(enabledForRead);
+
   return 0;
 }
 
@@ -43,6 +44,8 @@ int readFromShm(char* buf, sem_t* sem) {
   while (buf[len] != '\n' && buf[len] != 0) {
     putchar(buf[len++]);
   }
+  if (buf[len]==0)
+      return 0;
   putchar('\n');
-  return buf[len] == 0 ? -1 : ++len;
+  return ++len;
 }
