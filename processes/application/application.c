@@ -91,7 +91,8 @@ int main(int argc, char* argv[]) {
     for (int j = 0; j < minInt(FORK_QUANT, fileQuant); j++) {
       if (FD_ISSET(getResults[j][READ], &rfds)) {
         char result[BUFFER_SIZE] = {0};
-        safeRead(getResults[j][READ], result, BUFFER_SIZE);
+        int read = safeRead(getResults[j][READ], result, BUFFER_SIZE);
+        if (read == 0) exitWithFailure("Couldn't read, slave may have exited with error");
         if (fprintf(file, "%s", result) < 0) exitWithFailure("fprint() error");
         shmBufCurrent += writeToShm(shmBufCurrent, result, semaphore);
         resultsCount++;
