@@ -12,7 +12,7 @@ void perrorExit(const char* errMsg) {
 }
 
 void exitWithFailure(const char* errMsg) {
-  fprintf(stderr, "%s", errMsg);
+  fprintf(stderr, "%s\n", errMsg);
   exit(EXIT_FAILURE);
 }
 
