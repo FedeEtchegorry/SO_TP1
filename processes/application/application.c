@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
 
 int writeToShm(char* shmBuf, char* result, sem_t* semaphore) {
   int len = 0;
-  while (result[len] != '\n') {
+  while (result[len] != '\n' && result[len] != 0) {
     shmBuf[len] = result[len];
     ++len;
   }
