@@ -4,3 +4,4 @@ bin/
 files/
 .bash_history
 .clangd
+**/results*
