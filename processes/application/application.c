@@ -37,9 +37,7 @@ int main(int argc, char* argv[]) {
   argv++;
 
   int fileQuant = argc - 1;
-  if (fileQuant < 1) {
-    exitWithFailure("No files were passed\n");
-  }
+  if (fileQuant < 1) exitWithFailure("No files were passed");
 
   int shmFd = safeShmOpen(SHM_NAME, O_CREAT | O_RDWR, SHM_PERMISSIONS);
   safeFtruncate(shmFd, SHM_SIZE);
