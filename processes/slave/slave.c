@@ -41,7 +41,10 @@ void md5sumCaller(char* path, char* buffer) {
   strcpy(md5sumCommand + strlen(md5sumCommand), path);
   FILE* fp = popen(md5sumCommand, "r");
   if (fp == NULL) perrorExit("peopen() error");
-  if (fgets(buffer, SMALL_BUFFER, fp) == NULL) perrorExit("fgets() error");
+  if (fgets(buffer, SMALL_BUFFER, fp) == NULL) {
+    if (WEXITSTATUS(pclose(fp)) != 0) exitWithFailure("Slave: md5sum error");
+    else perrorExit("fgets() error");
+  }
   buffer[strlen(buffer) - 1] = '\0';
   if (pclose(fp) == -1) perrorExit("pclose() error");
 }
